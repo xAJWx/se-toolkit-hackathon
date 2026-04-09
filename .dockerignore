@@ -1,0 +1,8 @@
+# Bot
+bot/
+!bot/__init__.py
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
