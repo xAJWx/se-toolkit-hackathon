@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import Optional
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from bot.services.parser import parse_reminder, format_reminder_created
 from bot.services.db import ReminderDB
 
@@ -18,12 +20,23 @@ REMIND_USAGE = (
 )
 
 
+def get_reminder_keyboard() -> InlineKeyboardMarkup:
+    """Return inline keyboard after creating a reminder."""
+    keyboard = [
+        [
+            InlineKeyboardButton("📋 My Reminders", callback_data="list"),
+            InlineKeyboardButton("➕ Add Another", callback_data="add_help"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def handle_remind(
     text: str, user_id: int, db: ReminderDB
-) -> str:
-    """Parse and create a reminder. Returns response text."""
+) -> tuple[str, Optional[InlineKeyboardMarkup]]:
+    """Parse and create a reminder. Returns (response_text, keyboard)."""
     if not text.strip():
-        return REMIND_USAGE
+        return REMIND_USAGE, None
 
     result = parse_reminder(text)
 
@@ -34,7 +47,8 @@ async def handle_remind(
             "• _at 5pm_\n"
             "• _tomorrow at 10:00_\n"
             "• _in 2 hours_\n"
-            "• _on monday at 3pm_"
+            "• _on monday at 3pm_",
+            None,
         )
 
     task_text = result["text"]
@@ -46,4 +60,4 @@ async def handle_remind(
 
     reminder_id = await db.create_reminder(user_id, task_text, remind_at)
 
-    return format_reminder_created(reminder_id, task_text, remind_at)
+    return format_reminder_created(reminder_id, task_text, remind_at), get_reminder_keyboard()

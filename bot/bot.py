@@ -8,7 +8,6 @@ Supports two modes:
 
 import sys
 import argparse
-import asyncio
 import logging
 
 from telegram import Update
@@ -67,8 +66,8 @@ async def handle_remind_command(
     assert db is not None
     text = " ".join(context.args) if context.args else ""
     user_id = update.effective_user.id
-    response = await handle_remind(text, user_id, db)
-    await update.message.reply_text(response, parse_mode="Markdown")
+    response, keyboard = await handle_remind(text, user_id, db)
+    await update.message.reply_text(response, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def handle_list_command(
@@ -100,8 +99,8 @@ async def handle_message(
     text = update.message.text
     if text:
         user_id = update.effective_user.id
-        response = await handle_remind(text, user_id, db)
-        await update.message.reply_text(response, parse_mode="Markdown")
+        response, keyboard = await handle_remind(text, user_id, db)
+        await update.message.reply_text(response, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def handle_callback(
@@ -171,7 +170,7 @@ def run_test_mode(command_text: str) -> None:
     sys.exit(0)
 
 
-async def run_telegram_mode(config: dict) -> None:
+def run_telegram_mode(config: dict) -> None:
     """Run the bot in Telegram mode.
 
     Args:
@@ -186,19 +185,28 @@ async def run_telegram_mode(config: dict) -> None:
 
     logger.info("Starting RemindMe Telegram bot...")
 
-    # Initialize DB
+    # Initialize DB synchronously via asyncio
     dsn = get_dsn(config)
-    db = ReminderDB(dsn)
-    await db.init()
-    logger.info("Database connection established")
+
+    async def init_db_and_scheduler(application):
+        global db, scheduler
+        db = ReminderDB(dsn)
+        await db.init()
+        logger.info("Database connection established")
+
+        scheduler = ReminderScheduler(application.bot, db)
+        await scheduler.start()
+        logger.info("Reminder scheduler started")
+
+    async def cleanup():
+        global db, scheduler
+        if scheduler:
+            await scheduler.stop()
+        if db:
+            await db.close()
 
     # Build application
     application = Application.builder().token(bot_token).build()
-
-    # Initialize scheduler
-    scheduler = ReminderScheduler(application.bot, db)
-    await scheduler.start()
-    logger.info("Reminder scheduler started")
 
     # Add command handlers
     application.add_handler(CommandHandler("start", handle_start_command))
@@ -215,14 +223,12 @@ async def run_telegram_mode(config: dict) -> None:
     # Add callback query handler for inline buttons
     application.add_handler(CallbackQueryHandler(handle_callback))
 
-    # Run with graceful shutdown
-    try:
-        await application.run_polling(allowed_updates=Update.ALL_TYPES)
-    finally:
-        if scheduler:
-            await scheduler.stop()
-        if db:
-            await db.close()
+    # Use the application's post_init and post_shutdown hooks
+    application.post_init = init_db_and_scheduler
+    application.post_shutdown = cleanup
+
+    # run_polling manages its own event loop
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 def main() -> None:
@@ -244,8 +250,8 @@ def main() -> None:
         # Test mode - no Telegram connection needed
         run_test_mode(args.test)
     else:
-        # Telegram mode
-        asyncio.run(run_telegram_mode(config))
+        # Telegram mode — run_polling manages its own event loop
+        run_telegram_mode(config)
 
 
 if __name__ == "__main__":

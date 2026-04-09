@@ -1,10 +1,11 @@
 -- Initialize reminders table
+-- Using TIMESTAMP WITHOUT TIME ZONE to store user's local time directly
 CREATE TABLE IF NOT EXISTS reminders (
     id SERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     text TEXT NOT NULL,
-    remind_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    remind_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
     is_sent BOOLEAN DEFAULT FALSE
 );
 

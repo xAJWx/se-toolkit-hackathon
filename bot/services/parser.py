@@ -8,31 +8,28 @@ Parses human-readable text like:
 """
 
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import dateparser
+
+# User's timezone (Europe/Moscow = UTC+3)
+USER_TZ = timezone(timedelta(hours=3))
 
 
 def parse_reminder(text: str) -> Optional[dict[str, str | datetime]]:
     """Parse reminder text into (task_text, remind_at).
 
     Returns dict with 'text' and 'remind_at' keys, or None if parsing fails.
+    The returned remind_at is in UTC.
     """
     text = text.strip()
 
-    # Try to extract datetime from the text using dateparser
-    # We need to find a datetime somewhere in the string
-    # and the rest is the task description
-
-    # First, try to find explicit time patterns
-    # Pattern: "at HH:MM" or "at H:MM" or "at HH:MM am/pm"
-    time_pattern = (
-        r"\b(?:at\s+)?(\d{1,2}:\d{2}(?:\s*[aApP][mM])?)"
-    )
-
     # Try dateparser on the full text first
-    parsed = dateparser.parse(text, settings={"PREFER_DATES_FROM": "future"})
+    parsed = dateparser.parse(
+        text,
+        settings={"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": False},
+    )
 
     if parsed is None:
         # Try to extract time and date separately
@@ -51,13 +48,17 @@ def parse_reminder(text: str) -> Optional[dict[str, str | datetime]]:
             if match:
                 datetime_str = match.group(0)
                 parsed = dateparser.parse(
-                    datetime_str, settings={"PREFER_DATES_FROM": "future"}
+                    datetime_str,
+                    settings={"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": False},
                 )
                 if parsed:
                     break
 
     if parsed is None:
         return None
+
+    # dateparser returns naive datetime. Store as-is, display as-is.
+    # Scheduler compares against NOW() — both in the same timezone.
 
     # Now extract the task text (everything that's not the datetime part)
     task_text = _extract_task_text(text, parsed)
@@ -118,6 +119,11 @@ def _extract_task_text(text: str, parsed_dt: datetime) -> str:
     return result
 
 
+def _format_time_local(dt: datetime) -> str:
+    """Format datetime for display — no conversion, store & show as-is."""
+    return dt.strftime("%d %b %Y, %H:%M")
+
+
 def format_reminder_list(reminders: list[dict]) -> str:
     """Format a list of reminders for display."""
     if not reminders:
@@ -127,7 +133,7 @@ def format_reminder_list(reminders: list[dict]) -> str:
     for r in reminders:
         remind_at = r["remind_at"]
         if isinstance(remind_at, datetime):
-            time_str = remind_at.strftime("%d %b %Y, %H:%M")
+            time_str = _format_time_local(remind_at)
         else:
             time_str = str(remind_at)
         lines.append(f"• #{r['id']} — {r['text']} (_{time_str}_)")
@@ -138,7 +144,7 @@ def format_reminder_list(reminders: list[dict]) -> str:
 
 def format_reminder_created(reminder_id: int, text: str, remind_at: datetime) -> str:
     """Format confirmation for a newly created reminder."""
-    time_str = remind_at.strftime("%d %b %Y, %H:%M")
+    time_str = _format_time_local(remind_at)
     return (
         f"✅ Reminder #{reminder_id} set!\n\n"
         f"📝 {text}\n"

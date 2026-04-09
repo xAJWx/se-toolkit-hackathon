@@ -38,14 +38,20 @@ This bot lets a user type a reminder naturally (e.g. "remind me to submit lab 9 
 - ✅ Docker Compose for easy deployment
 - ✅ Test mode (`--test`) for development
 
-### Planned (Version 2)
+### Version 2 — Implemented
+
+- ✅ Inline keyboard buttons after creating a reminder (quick access to list/add)
+- ✅ Inline keyboard buttons on reminder notifications (quick actions)
+- ✅ Fixed timezone handling — reminders stored and displayed in user's local time (UTC+3)
+- ✅ Fixed scheduler comparison — PostgreSQL NOW() correctly compared with stored timestamps
+- ✅ Clean README with deployment instructions
+
+### Planned (Future)
 
 - 🔲 LLM-powered intent routing for better natural language understanding
 - 🔲 Recurring reminders (daily, weekly, monthly)
 - 🔲 Reminder categories and tags
-- 🔲 Inline keyboard for quick actions on reminders
 - 🔲 Snooze functionality
-- 🔲 Rich text formatting in notifications
 
 ## Usage
 

@@ -78,7 +78,7 @@ class ReminderDB:
                 """
                 SELECT id, user_id, text, remind_at
                 FROM reminders
-                WHERE is_sent = FALSE AND remind_at <= NOW()
+                WHERE is_sent = FALSE AND remind_at <= (NOW() + INTERVAL '3 hours')
                 ORDER BY remind_at ASC
                 """
             )

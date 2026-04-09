@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 WELCOME_TEXT = (
-    "🔔 *Welcome to RemindMe Bot!*\n\n"
+    "🔔 *Welcome to RemindMe!*\n\n"
     "I help you set reminders using natural language.\n"
     "Just tell me what to remind you and when!\n\n"
     "*Examples:*\n"
